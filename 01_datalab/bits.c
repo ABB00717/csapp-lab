@@ -203,7 +203,7 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-    return !(((x >> 4) << 4 ) ^ 48) & ((!(x & 4) & !(x & 2)) | !(x & 8));
+    return (!(((x >> 4) << 4 ) ^ 48)) & ((!(x & 4) & !(x & 2)) | !(x & 8));
 }
 /* 
  * conditional - same as x ? y : z 
@@ -253,7 +253,7 @@ int logicalNeg(int x) {
     // positive: ~x + 1 >> 31 == 1;
     // 0:        ~x + 1 >> 31 == 0;
     int negative = x >> 31;
-    int positive = ~x + 1 >> 31;
+    int positive = (~x + 1) >> 31;
     
     int bit = negative | positive;
     return (~bit & 1);
@@ -313,7 +313,9 @@ int howManyBits(int x) {
     // if bits and x are equal to 0, it means there's a special case 0 & 1
     // they all need only 1 bit.
     // return (bits | x) == 0 ? 1 : bits + 2;
-    return (bits + 2) - (!(bits | x));
+    // return (bits + 2) - (!(bits | x));
+    special_case = ~(!(bits | x)) + 1;
+    return (special_case & 1) | ((~special_case) & (bits + 2));
 }
 //float
 /* 
@@ -360,7 +362,7 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-    int result, bias, shift_amount;
+    int result;
 
     int sign = uf & 0x80000000;
     int exp = uf & 0x7F800000;
@@ -406,6 +408,8 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
+    int e;
+
     if (x >= 128) {
         // INF in float bit pattern 
         return 0x7F800000;
@@ -417,7 +421,7 @@ unsigned floatPower2(int x) {
         return 0;
     }
 
-    int e = x + 127;
+    e = x + 127;
     e = e << 23;
 
     return e;
