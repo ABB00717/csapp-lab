@@ -406,5 +406,19 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+    if (x >= 128) {
+        // INF in float bit pattern 
+        return 0x7F800000;
+    }
+
+    // -127 - 23 = -150
+    // any value below 1/(2^150) would be 0
+    if (x <= -150) {
+        return 0;
+    }
+
+    int e = x + 127;
+    e = e << 23;
+
+    return e;
 }
