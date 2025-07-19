@@ -1,0 +1,99 @@
+r13 = rsp
+rsi = rsp
+
+read_six_numbers // start at %rsp
+r14 = rsp
+r12d = 0
+
+// If there's any input duplicated or exceed 6, explode
+while (true) {
+    rbp = r13
+    eax = *(r13) - 1
+
+    if (eax > 5) // all inputs can't exceed 6
+        bomb
+
+    r12d++
+    if (r12d == 6) 
+        break
+    ebx = r12d
+        
+    while (true) {
+        rax = ebx
+        eax = *(rsp + 4 * rax)
+
+        if (eax == *(rbp))
+            bomb
+        
+        ebx += 1
+        if (ebx >= 6)
+            break
+    }
+
+    r13 += 4
+}
+
+rsi = rsp + 24
+rax = r14
+// for every input, input = 7 - input
+while (true) {
+    *(rax) = 7 - *(rax)
+    rax += 4
+
+    if (rax == rsi)
+        break;
+}
+
+for (int i = 0; i < 6; i++) {
+    ecx = *(rsp + 4 * i);
+    head = 0x6032d0
+    if (ecx > 1) {
+        for (int j = 1; j != i; j++) {
+            head = *(head + 8)
+        }
+    }
+
+    *(rsp + 32 + 8*i) = head
+}
+
+// esi = 0
+// do {
+//     ecx = *(rsp + rsi)
+//     if (ecx <= 1) {
+//         edx = 0x6032d0
+//     } else {
+//         eax = 1
+//         edx = 0x6032d0
+//         do {
+//             rdx = *(rdx + 8)
+//             eax++
+//         while (eax != ecx)
+//     }
+// 
+//     *(rsp + 32 + 2 * rsi) = rdx
+//     rsi += 4
+// } while (rsi < 24);
+
+rbx = (rsp + 20)
+rax = rsp + 28
+rsi = rsp + 50
+rcx = rbx
+
+while (true) {
+    rdx = (rax)
+    (rcx + 8) = rdx
+    rax += 8
+    if (rax == rsi)
+        break
+    rcx = rdx
+}
+
+(rdx + 8) = 0
+ebp = 5
+for (ebp = 5; ebp >= 0; ebp--) {
+    rax = (rbx + 8)
+    eax = (rax)
+    if ((rbx) < (eax))
+        explode
+    rbx = (rbx + 8)
+}
