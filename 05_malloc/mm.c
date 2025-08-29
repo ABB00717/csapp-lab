@@ -79,6 +79,7 @@ team_t team = {
 #define ALIGNMENT 8         /* single word (4) or double word (8) alignment */
 #define CHUNKSIZE (1 << 12) /* Extend heap by this amount (bytes) */
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
+#define LISTS_SIZE 20;
 
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 
@@ -89,8 +90,8 @@ team_t team = {
 #define ALIGN(size) (((size) + (ALIGNMENT - 1)) & ~0x7)
 
 /* Read and write a word at address p */
-#define GET(p) (*(unsigned int *)(p))
-#define PUT(p, val) (*(unsigned int *)(p) = (val))
+#define GET(p) (*(long *)(p))
+#define PUT(p, val) (*(long *)(p) = (val))
 
 /* Read the size and allocated fields from address p */
 #define GET_SIZE(p) (GET(p) & ~0x7)
