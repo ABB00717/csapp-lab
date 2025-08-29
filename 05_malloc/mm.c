@@ -219,7 +219,7 @@ void *mm_realloc(void *ptr, size_t size) {
     }
 
     size_t old_size = GET_SIZE(HDRP(ptr));
-    if (old_size > size) return ptr;
+    if (old_size > size) size = old_size;
 
     char *new_ptr = mm_malloc(size);
     memcpy(new_ptr, ptr, old_size);
