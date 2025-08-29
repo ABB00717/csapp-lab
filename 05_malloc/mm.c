@@ -16,6 +16,37 @@
  *
  * author: abb00717
  */
+
+/*
+ *  Design Approach: Segregated Fits
+ *
+ *  # Segregated Lists
+ *  Size of the list:
+ *      Power of 2:
+ *      1, 2, 4, 8, 16, 32, ...
+ *
+ *  # Block Structure
+ *  min = 16 bytes
+ *
+ *  ## Free Block
+ *  | Block Size | Allocate | (WSIZE)
+ *  (ptr)
+ *  | Previous Free Block   | (WSIZE)
+ *  | Next Free Block       | (WSIZE)
+ *  | Foot                  | (WSIZE)
+ *
+ *  ## Allocated Block
+ *  | Block Size | Allocate | (WSIZE)
+ *  (ptr)
+ *  | Payload               | (size)
+ *
+ *  ## Heap
+ *  Prologue Blocks | ... | Epilogue Block
+ *    8/1   |  8/1  | ... | 0/1
+ *          ^
+ *      heap_listp
+ */
+
 #include "mm.h"
 
 #include <assert.h>
