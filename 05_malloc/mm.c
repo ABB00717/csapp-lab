@@ -113,88 +113,6 @@ enum ALLOCATION {
 static char *heap_listp = 0;
 
 /*
- *  extend_heap - extend the heap by requesting more memory from the OS
- */
-void *extend_heap(size_t words) {
-    /* Round up to nearest DSIZE */
-    size_t size = (words % 2) == 1 ? (words + 1) * WSIZE : words * WSIZE;
-
-    /* Requests additional heap space from memory system */
-    char *bp;
-    if ((long)(bp = mem_sbrk(size)) == -1) return NULL;
-
-    /* Initialize header/footer */
-    PUT(HDRP(bp), PACK(size, FREE));
-    PUT(FTRP(bp), PACK(size, FREE));
-    /* Don't forget to put the new epilogue header */
-    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, ALLOCATED));
-
-    return coalesce(bp);
-}
-
-/*
- *  coalesce - merge the block with the adjacent free blocks
- */
-void *coalesce(void *ptr) {
-    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(ptr)));
-    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(ptr)));
-    size_t size = GET_SIZE(HDRP(ptr));
-
-    if (prev_alloc && next_alloc) return ptr;
-
-    if (prev_alloc && !next_alloc) {
-        size += GET_SIZE(HDRP(NEXT_BLKP(ptr)));
-        PUT(HDRP(ptr), PACK(size, FREE));
-        // FTRP reference to HDRP, since we've changed the size in HDRP, there's
-        // no need to use NEXT_BLKP
-        PUT(FTRP(ptr), PACK(size, FREE));
-    } else if (!prev_alloc && next_alloc) {
-        size += GET_SIZE(HDRP(PREV_BLKP(ptr)));
-        PUT(HDRP(PREV_BLKP(ptr)), PACK(size, FREE));
-        PUT(FTRP(ptr), PACK(size, FREE));
-        ptr = PREV_BLKP(ptr);
-    } else if (!prev_alloc && !next_alloc) {
-        size += GET_SIZE(HDRP(PREV_BLKP(ptr))) + GET_SIZE(HDRP(NEXT_BLKP(ptr)));
-        PUT(HDRP(PREV_BLKP(ptr)), PACK(size, FREE));
-        PUT(FTRP(NEXT_BLKP(ptr)), PACK(size, FREE));
-        ptr = PREV_BLKP(ptr);
-    }
-
-    return ptr;
-}
-
-/*
- *  place - splits a free block into an allocated block and a new free block
- */
-extern void place(void *ptr, size_t size) {
-    size_t remain_size = GET_SIZE(HDRP(ptr)) - size;
-
-    if (remain_size >= 2 * DSIZE) {
-        PUT(HDRP(ptr), PACK(size, ALLOCATED));
-        PUT(FTRP(ptr), PACK(size, ALLOCATED));
-        // ptr points to the remaining free block
-        ptr = NEXT_BLKP(ptr);
-        PUT(HDRP(ptr), PACK(remain_size, FREE));
-        PUT(FTRP(ptr), PACK(remain_size, FREE));
-    } else {  // the remaining free block isn't large enough
-        PUT(HDRP(ptr), PACK(GET_SIZE(HDRP(ptr)), ALLOCATED));
-        PUT(FTRP(ptr), PACK(GET_SIZE(HDRP(ptr)), ALLOCATED));
-    }
-}
-
-/*
- *  find_fit - first fit
- */
-extern void *find_fit(size_t size) {
-    char *bp;
-    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
-        if (!GET_ALLOC(HDRP(bp)) && size <= GET_SIZE(HDRP(bp))) return bp;
-    }
-
-    return NULL;
-}
-
-/*
  *  mm_init - initialize the malloc package.
  *  Returns 0 if successful and -1 otherwise;
  */
@@ -274,4 +192,86 @@ void *mm_realloc(void *ptr, size_t size) {
     memcpy(new_ptr, ptr, old_size);
     mm_free(ptr);
     return new_ptr;
+}
+
+/*
+ *  extend_heap - extend the heap by requesting more memory from the OS
+ */
+void *extend_heap(size_t words) {
+    /* Round up to nearest DSIZE */
+    size_t size = (words % 2) == 1 ? (words + 1) * WSIZE : words * WSIZE;
+
+    /* Requests additional heap space from memory system */
+    char *bp;
+    if ((long)(bp = mem_sbrk(size)) == -1) return NULL;
+
+    /* Initialize header/footer */
+    PUT(HDRP(bp), PACK(size, FREE));
+    PUT(FTRP(bp), PACK(size, FREE));
+    /* Don't forget to put the new epilogue header */
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, ALLOCATED));
+
+    return coalesce(bp);
+}
+
+/*
+ *  coalesce - merge the block with the adjacent free blocks
+ */
+void *coalesce(void *ptr) {
+    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(ptr)));
+    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(ptr)));
+    size_t size = GET_SIZE(HDRP(ptr));
+
+    if (prev_alloc && next_alloc) return ptr;
+
+    if (prev_alloc && !next_alloc) {
+        size += GET_SIZE(HDRP(NEXT_BLKP(ptr)));
+        PUT(HDRP(ptr), PACK(size, FREE));
+        // FTRP reference to HDRP, since we've changed the size in HDRP, there's
+        // no need to use NEXT_BLKP
+        PUT(FTRP(ptr), PACK(size, FREE));
+    } else if (!prev_alloc && next_alloc) {
+        size += GET_SIZE(HDRP(PREV_BLKP(ptr)));
+        PUT(HDRP(PREV_BLKP(ptr)), PACK(size, FREE));
+        PUT(FTRP(ptr), PACK(size, FREE));
+        ptr = PREV_BLKP(ptr);
+    } else if (!prev_alloc && !next_alloc) {
+        size += GET_SIZE(HDRP(PREV_BLKP(ptr))) + GET_SIZE(HDRP(NEXT_BLKP(ptr)));
+        PUT(HDRP(PREV_BLKP(ptr)), PACK(size, FREE));
+        PUT(FTRP(NEXT_BLKP(ptr)), PACK(size, FREE));
+        ptr = PREV_BLKP(ptr);
+    }
+
+    return ptr;
+}
+
+/*
+ *  place - splits a free block into an allocated block and a new free block
+ */
+extern void place(void *ptr, size_t size) {
+    size_t remain_size = GET_SIZE(HDRP(ptr)) - size;
+
+    if (remain_size >= 2 * DSIZE) {
+        PUT(HDRP(ptr), PACK(size, ALLOCATED));
+        PUT(FTRP(ptr), PACK(size, ALLOCATED));
+        // ptr points to the remaining free block
+        ptr = NEXT_BLKP(ptr);
+        PUT(HDRP(ptr), PACK(remain_size, FREE));
+        PUT(FTRP(ptr), PACK(remain_size, FREE));
+    } else {  // the remaining free block isn't large enough
+        PUT(HDRP(ptr), PACK(GET_SIZE(HDRP(ptr)), ALLOCATED));
+        PUT(FTRP(ptr), PACK(GET_SIZE(HDRP(ptr)), ALLOCATED));
+    }
+}
+
+/*
+ *  find_fit - first fit
+ */
+extern void *find_fit(size_t size) {
+    char *bp;
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
+        if (!GET_ALLOC(HDRP(bp)) && size <= GET_SIZE(HDRP(bp))) return bp;
+    }
+
+    return NULL;
 }
