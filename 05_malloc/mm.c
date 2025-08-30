@@ -79,6 +79,7 @@ team_t team = {
 #define ALIGNMENT 8         /* single word (4) or double word (8) alignment */
 #define CHUNKSIZE (1 << 12) /* Extend heap by this amount (bytes) */
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
+#define LISTS_SIZE 20
 
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 
@@ -117,17 +118,22 @@ static char *heap_listp = 0;
  *  Returns 0 if successful and -1 otherwise;
  */
 int mm_init(void) {
-    if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void *)-1) {
+    if ((heap_listp = mem_sbrk((4 + LISTS_SIZE) * WSIZE)) == (void *)-1) {
         return -1;
     }
 
+    // init free lists
+    for (int i = 0; i < LISTS_SIZE; i++) {
+        PUT(heap_listp + i * WSIZE, (unsigned int)NULL);
+    }
+
     /* Prologue Block */
-    PUT(heap_listp, 0);
-    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, ALLOCATED));
-    PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, ALLOCATED));
+    PUT(heap_listp + LISTS_SIZE * WSIZE, 0);
+    PUT(heap_listp + (LISTS_SIZE + 1) * WSIZE, PACK(DSIZE, ALLOCATED));
+    PUT(heap_listp + (LISTS_SIZE + 2) * WSIZE, PACK(DSIZE, ALLOCATED));
     /* Epilogue Block */
-    PUT(heap_listp + (3 * WSIZE), PACK(0, ALLOCATED));
-    heap_listp += (2 * WSIZE);
+    PUT(heap_listp + (LISTS_SIZE + 3) * WSIZE, PACK(0, ALLOCATED));
+    heap_listp += (LISTS_SIZE + 2) * WSIZE;
 
     /* Extend the empty heap wiith a free block of CHUNKSIZE bytes */
     if (extend_heap(CHUNKSIZE / WSIZE) == NULL) return -1;
