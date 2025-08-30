@@ -74,11 +74,10 @@ team_t team = {
 
 /* $begin mallocmacros */
 /* Basic constants and macros */
-#define WSIZE 4             /* Word and header/footer size (bytes) */
-#define DSIZE 8             /* Double word size (bytes) */
-#define ALIGNMENT 8         /* single word (4) or double word (8) alignment */
-#define CHUNKSIZE (1 << 12) /* Extend heap by this amount (bytes) */
-#define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
+#define WSIZE 4                  /* Word and header/footer size (bytes) */
+#define DSIZE 8                  /* Double word size (bytes) */
+#define MIN_BLOCK_SIZE 4 * WSIZE /* Minimum size of free block */
+#define CHUNKSIZE (1 << 12)      /* Extend heap by this amount (bytes) */
 #define LISTS_SIZE 20
 
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
@@ -86,15 +85,17 @@ team_t team = {
 /* Pack a size and allocated bit into a word */
 #define PACK(size, alloc) ((size) | (alloc))
 
-/* rounds up to the nearest multiple of ALIGNMENT */
-#define ALIGN(size) (((size) + (ALIGNMENT - 1)) & ~0x7)
-
 /* Read and write a word at address p */
 #define GET(p) (*(unsigned int *)(p))
+#define PUT(p, val) (*(unsigned int *)(p) = (val))
+/*
+ *  `entry` is entry of the num class
+ *      &entry = address of the entry
+ *      entry = head of the list
+ */
 #define GET_LIST_ENTRY(offset) ((unsigned int *)((heap_listp + offset * WSIZE)))
 #define GET_LIST_HEAD(offset) \
     ((unsigned int *)(GET(heap_listp + offset * WSIZE)))
-#define PUT(p, val) (*(unsigned int *)(p) = (val))
 
 /* Read the size and allocated fields from address p */
 #define GET_SIZE(p) (GET(p) & ~0x7)
@@ -121,7 +122,7 @@ static char *heap_listp = 0;
  *  Returns 0 if successful and -1 otherwise;
  */
 int mm_init(void) {
-    if ((heap_listp = mem_sbrk((4 + LISTS_SIZE) * WSIZE)) == (void *)-1) {
+    if ((heap_listp = mem_sbrk((6 + LISTS_SIZE) * WSIZE)) == (void *)-1) {
         return -1;
     }
 
@@ -132,10 +133,10 @@ int mm_init(void) {
 
     /* Prologue Block */
     PUT(heap_listp + LISTS_SIZE * WSIZE, 0);
-    PUT(heap_listp + (LISTS_SIZE + 1) * WSIZE, PACK(DSIZE, ALLOCATED));
-    PUT(heap_listp + (LISTS_SIZE + 2) * WSIZE, PACK(DSIZE, ALLOCATED));
+    PUT(heap_listp + (LISTS_SIZE + 1) * WSIZE, PACK(MIN_BLOCK_SIZE, ALLOCATED));
+    PUT(heap_listp + (LISTS_SIZE + 4) * WSIZE, PACK(MIN_BLOCK_SIZE, ALLOCATED));
     /* Epilogue Block */
-    PUT(heap_listp + (LISTS_SIZE + 3) * WSIZE, PACK(0, ALLOCATED));
+    PUT(heap_listp + (LISTS_SIZE + 5) * WSIZE, PACK(0, ALLOCATED));
     heap_listp += (LISTS_SIZE + 2) * WSIZE;
 
     /* Extend the empty heap wiith a free block of CHUNKSIZE bytes */
@@ -155,8 +156,8 @@ void *mm_malloc(size_t size) {
     size_t extendsize; /* Amount to extend heap */
     char *bp;
 
-    if (size <= DSIZE)
-        asize = 2 * DSIZE;
+    if (size <= MIN_BLOCK_SIZE - WSIZE)
+        asize = MIN_BLOCK_SIZE;
     else
         asize = DSIZE * ((size + DSIZE + (DSIZE - 1)) / DSIZE);
 
@@ -229,7 +230,7 @@ void *extend_heap(size_t words) {
  *  coalesce - merge the block with the adjacent free blocks
  */
 void *coalesce(void *ptr) {
-    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(ptr)));
+    size_t prev_alloc = GET_ALLOC((char *)ptr - DSIZE);
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(ptr)));
     size_t size = GET_SIZE(HDRP(ptr));
 
@@ -262,7 +263,7 @@ void *coalesce(void *ptr) {
 extern void place(void *ptr, size_t size) {
     size_t remain_size = GET_SIZE(HDRP(ptr)) - size;
 
-    if (remain_size >= 2 * DSIZE) {
+    if (remain_size >= MIN_BLOCK_SIZE) {
         PUT(HDRP(ptr), PACK(size, ALLOCATED));
         PUT(FTRP(ptr), PACK(size, ALLOCATED));
         // ptr points to the remaining free block
