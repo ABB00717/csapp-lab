@@ -91,6 +91,9 @@ team_t team = {
 
 /* Read and write a word at address p */
 #define GET(p) (*(unsigned int *)(p))
+#define GET_LIST_ENTRY(offset) ((unsigned int *)((heap_listp + offset * WSIZE)))
+#define GET_LIST_HEAD(offset) \
+    ((unsigned int *)(GET(heap_listp + offset * WSIZE)))
 #define PUT(p, val) (*(unsigned int *)(p) = (val))
 
 /* Read the size and allocated fields from address p */
@@ -123,7 +126,7 @@ int mm_init(void) {
     }
 
     // init free lists
-    for (int i = 0; i < LISTS_SIZE; i++) {
+    for (int i = 0; i <= LISTS_SIZE; i++) {
         PUT(heap_listp + i * WSIZE, (unsigned int)NULL);
     }
 
@@ -195,7 +198,7 @@ void *mm_realloc(void *ptr, size_t size) {
     if (old_size > size) size = old_size;
 
     char *new_ptr = mm_malloc(size);
-    memcpy(new_ptr, ptr, old_size);
+    memcpy(new_ptr, ptr, size);
     mm_free(ptr);
     return new_ptr;
 }
@@ -208,7 +211,7 @@ void *extend_heap(size_t words) {
     size_t size = (words % 2) == 1 ? (words + 1) * WSIZE : words * WSIZE;
 
     /* Requests additional heap space from memory system */
-    char *bp;
+    unsigned int *bp;
     if ((long)(bp = mem_sbrk(size)) == -1) return NULL;
 
     /* Initialize header/footer */
@@ -216,6 +219,8 @@ void *extend_heap(size_t words) {
     PUT(FTRP(bp), PACK(size, FREE));
     /* Don't forget to put the new epilogue header */
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, ALLOCATED));
+    /* insert the free block into the free lists */
+    insert_free_list(bp);
 
     return coalesce(bp);
 }
@@ -280,4 +285,26 @@ extern void *find_fit(size_t size) {
     }
 
     return NULL;
+}
+
+/*
+ *  insert_free_list - insert the
+ */
+void insert_free_list(void *bp) {
+    size_t size = GET_SIZE(HDRP(bp));
+    int num_class = search(size);
+
+    unsigned int *entry = GET_LIST_ENTRY(num_class);
+    PUT(&entry, (unsigned int)bp);
+}
+
+/*
+ *  search - return a proper size class index for a given size
+ */
+int search(size_t size) {
+    int i;
+    for (i = 0; i < LISTS_SIZE; i++) {
+        if (size <= (1 << i)) return i;
+    }
+    return i;
 }
